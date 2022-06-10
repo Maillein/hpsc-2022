@@ -38,7 +38,7 @@ void compute_tmp_velocity(double *u, double *v, double *b) {
 void solve_poisson_equation(double *u, double *v, double *p, double *pn, double *b) {
     for (int _iter = 0; _iter < nit; _iter++) {
         memcpy(pn, p, ny * nx * sizeof(double));
-        for (int j = 1, j < ny-1; j++) {
+        for (int j = 1; j < ny-1; j++) {
             for (int i = 1; i < nx-1; i++) {
                 p[at(j, i)] = (dy*dy * (pn[at(j, i+1)] + pn[at(j, i-1)]) +
                            dx*dx * (pn[at(j+1, i)] + pn[at(j-1, i)]) -
@@ -52,14 +52,14 @@ void solve_poisson_equation(double *u, double *v, double *p, double *pn, double 
             p[at(j, nx-1)] = p[at(j, nx-2)]; // right
             p[at(j, 0)] = p[at(j, 1)];       // left
         }
-        for (int i = 0; i < nx, i++) {
+        for (int i = 0; i < nx; i++) {
             p[at(ny-1, i)] = 0;              // top
             p[at(0, i)] = p[at(1, i)];       // bottom
         }
     }
 }
 
-void adjust_velocity(double *u, double *v, double *un, double * vn) {
+void adjust_velocity(double *u, double *v, double *un, double *vn, double *p) {
     memcpy(un, u, ny * nx * sizeof(double));
     memcpy(vn, v, ny * nx * sizeof(double));
     for (int j = 0; j < ny; j++) {
@@ -83,7 +83,7 @@ void adjust_velocity(double *u, double *v, double *un, double * vn) {
         u[at(j, 0)] = 0;    // left
         v[at(j, 0)] = 0;
     }
-    for (int i = 0; i < nx, i++) {
+    for (int i = 0; i < nx; i++) {
         u[at(ny-1, i)] = 1; // top
         v[at(ny-1, i)] = 0;
         u[at(0, i)] = 0;    // bottom
@@ -92,20 +92,20 @@ void adjust_velocity(double *u, double *v, double *un, double * vn) {
 }
 
 int main() {
-    double *u  = (*double)malloc(ny * nx * sizeof(double));
-    double *un = (*double)malloc(ny * nx * sizeof(double));
-    double *v  = (*double)malloc(ny * nx * sizeof(double));
-    double *vn = (*double)malloc(ny * nx * sizeof(double));
-    double *p  = (*double)malloc(ny * nx * sizeof(double));
-    double *pn = (*double)malloc(ny * nx * sizeof(double));
-    double *b  = (*double)malloc(ny * nx * sizeof(double));
+    double *u  = (double *)malloc(ny * nx * sizeof(double));
+    double *un = (double *)malloc(ny * nx * sizeof(double));
+    double *v  = (double *)malloc(ny * nx * sizeof(double));
+    double *vn = (double *)malloc(ny * nx * sizeof(double));
+    double *p  = (double *)malloc(ny * nx * sizeof(double));
+    double *pn = (double *)malloc(ny * nx * sizeof(double));
+    double *b  = (double *)malloc(ny * nx * sizeof(double));
 
     initialize(u, v, p, b);
 
     for (int _i = 0; _i < nt; _i++) {
         compute_tmp_velocity(u, v, b);
         solve_poisson_equation(u, v, p, pn, b);
-        adjust_velocity(u, v, un, vn);
+        adjust_velocity(u, v, un, vn, p);
     }
     return 0;
 }
