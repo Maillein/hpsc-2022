@@ -139,26 +139,6 @@ int main() {
         cudaDeviceSynchronize();
     }
 
-#if 1
-    FILE *file_u = fopen("u.csv", "w");
-    FILE *file_v = fopen("v.csv", "w");
-    FILE *file_p = fopen("p.csv", "w");
-
-    for (int j = 0; j < ny; j++) {
-        for (int i = 0; i < nx; i++) {
-            if (i < nx - 1) {
-                fprintf(file_u, "%f,", u[at(j,i)]);
-                fprintf(file_v, "%f,", v[at(j,i)]);
-                fprintf(file_p, "%f,", p[at(j,i)]);
-            } else {
-                fprintf(file_u, "%f\n", u[at(j,i)]);
-                fprintf(file_v, "%f\n", v[at(j,i)]);
-                fprintf(file_p, "%f\n", p[at(j,i)]);
-           }
-        }
-    }
-#endif
-
     cudaFree(u);
     cudaFree(v);
     cudaFree(p);
