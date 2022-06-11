@@ -11,12 +11,12 @@
 #define rho 1.0
 #define nu  0.02
 
-#define at(y, x) (y * nx + x)
-#define divup(a,b) ((a + b - 1) / b)
+#define at(y, x) ((y) * nx + (x))
+#define divup(a,b) (((a) + (b) - 1) / (b))
 
 __global__ void initialize(double *u, double *v, double *p, double *b) {
-    unsigned int i = threadIdx.y + blockIdx.y * blockDim.y;
-    unsigned int j = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     u[at(j,i)] = 0.0;
     v[at(j,i)] = 0.0;
@@ -25,10 +25,10 @@ __global__ void initialize(double *u, double *v, double *p, double *b) {
 }
 
 __global__ void compute_tmp_velocity(double *u, double *v, double *b) {
-    unsigned int i = threadIdx.y + blockIdx.y * blockDim.y;
-    unsigned int j = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (1 <= i && i < ny - 1 && 1 <= j && j < nx - 1) {
+    if (1 <= i && i < nx - 1 && 1 <= j && j < ny - 1) {
         b[at(j, i)] = rho * (1 / dt *
                  ((u[at(j, i+1)] - u[at(j, i-1)]) / (2 * dx) + (v[at(j+1, i)] - v[at(j-1, i)]) / (2 * dy)) -
                 (((u[at(j, i+1)] - u[at(j, i-1)]) / (2 * dx)) * ((u[at(j, i+1)] - u[at(j, i-1)]) / (2 * dx))) - 2 * ((u[at(j+1, i)] - u[at(j-1, i)]) / (2 * dy) *
@@ -37,8 +37,8 @@ __global__ void compute_tmp_velocity(double *u, double *v, double *b) {
 }
 
 __global__ void solve_poisson_equation(double *p, double *pn, double *b) {
-    unsigned int i = threadIdx.y + blockIdx.y * blockDim.y;
-    unsigned int j = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     for (int _iter = 0; _iter < nit; _iter++) {
         pn[at(j,i)] = p[at(j,i)];
@@ -70,8 +70,8 @@ __global__ void solve_poisson_equation(double *p, double *pn, double *b) {
 }
 
 __global__ void adjust_velocity(double *u, double *v, double *un, double *vn, double *p) {
-    unsigned int i = threadIdx.y + blockIdx.y * blockDim.y;
-    unsigned int j = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     un[at(j,i)] = u[at(j,i)];
     vn[at(j,i)] = v[at(j,i)];
@@ -126,12 +126,38 @@ int main() {
     dim3 grid(divup(nx,block.x), divup(ny,block.y));
 
     initialize<<< block, grid >>>(u, v, p, b);
+    cudaDeviceSynchronize();
 
     for (int _i = 0; _i < nt; _i++) {
         compute_tmp_velocity<<< block, grid >>>(u, v, b);
+        cudaDeviceSynchronize();
+
         solve_poisson_equation<<< block, grid >>>(p, pn, b);
+        cudaDeviceSynchronize();
+        
         adjust_velocity<<< block, grid >>>(u, v, un, vn, p);
+        cudaDeviceSynchronize();
     }
+
+#if 1
+    FILE *file_u = fopen("u.csv", "w");
+    FILE *file_v = fopen("v.csv", "w");
+    FILE *file_p = fopen("p.csv", "w");
+
+    for (int j = 0; j < ny; j++) {
+        for (int i = 0; i < nx; i++) {
+            if (i < nx - 1) {
+                fprintf(file_u, "%f,", u[at(j,i)]);
+                fprintf(file_v, "%f,", v[at(j,i)]);
+                fprintf(file_p, "%f,", p[at(j,i)]);
+            } else {
+                fprintf(file_u, "%f\n", u[at(j,i)]);
+                fprintf(file_v, "%f\n", v[at(j,i)]);
+                fprintf(file_p, "%f\n", p[at(j,i)]);
+           }
+        }
+    }
+#endif
 
     cudaFree(u);
     cudaFree(v);
